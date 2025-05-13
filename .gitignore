@@ -1,0 +1,123 @@
+# Flutter-specific files
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ/Android Studio related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code settings (optional, uncomment if you want to ignore VS Code settings)
+#.vscode/
+
+# Flutter/Dart/Pub related
+pubspec.lock
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.package-lock.json
+**/.packages
+**/.dart_tool/
+**/.pub-cache/
+**/.pub/
+**/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android specific
+android/.gradle/
+android/.idea/
+android/local.properties
+android/.dart_tool/
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/app/src/main/assets/flutter_assets/
+android/app/src/main/assets/vm_snapshot_data
+android/app/src/main/assets/isolate_snapshot_data
+android/app/src/main/assets/kernel_blob.bin
+android/app/src/main/assets/AssetManifest.json
+android/app/src/main/assets/FontManifest.json
+android/app/src/main/assets/NOTICES
+
+# iOS specific
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Flutter/flutter_export_environment.sh
+ios/.symlinks/
+ios/Pods/
+ios/Podfile.lock
+ios/Podfile
+ios/Runner.xcworkspace/
+ios/Flutter/App.framework
+ios/Flutter/engine/
+ios/Flutter/flutter_assets/
+ios/Flutter/Flutter.podspec
+ios/Flutter/GeneratedPluginRegistrant.swift
+ios/Flutter/Generated.xcconfig
+ios/Flutter/FlutterPluginRegistrant.swift
+ios/Flutter/Podfile.lock
+ios/Flutter/Podfile
+ios/Flutter/Debug.xcconfig
+ios/Flutter/Profile.xcconfig
+ios/Flutter/Release.xcconfig
+
+# Android Studio build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Thumbnails
+._*
+
+# Hidden files in directories
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.fseventsd
+
+# Files created by macOS when opening a directory
+.metadata_never_index
+
+# macOS Resource Forks
+*/.DocumentRevisions-V100
+*/.fseventsd
+*/.Spotlight-V100
+*/.TemporaryItems
+*/.Trashes
+*/.VolumeIcon.icns
+*/.com.apple.timemachine.donotpresent
