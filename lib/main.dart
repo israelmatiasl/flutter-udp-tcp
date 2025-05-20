@@ -4,6 +4,7 @@ import 'package:device_connection_wifi/client_screen.dart';
 import 'package:device_connection_wifi/server_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:network_info_plus/network_info_plus.dart';
+import 'package:device_connection_wifi/services/network_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,6 +36,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
 
+  final NetworkService _networkService = NetworkService();
+
   String? _wifiName;
   String? _wifiBSSID;
   String? _wifiIP;
@@ -42,82 +45,72 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _wifiSubmask;
   String? _serverIp;
   String? _statusListening;
-  RawDatagramSocket? _broadcastSocket;
   bool _isListening = false;
   int portUDP = 41234;
 
   @override
   void initState() {
     super.initState();
-    getNetworkInfo();
+    _loadData();
   }
 
-  Future<void> getNetworkInfo() async {
-    final info = NetworkInfo();
+  Future<void> _loadData() async {
+    await _getNetworkInfo();
+    if (_isListening) _stopListening();
+    _listenForServer();
+  }
 
-    _wifiName = await info.getWifiName() ?? "No conectado";
-    _wifiBSSID = await info.getWifiBSSID() ?? "No disponible";
-    _wifiIP = await info.getWifiIP() ?? "No disponible";
-    _wifiGateway = await info.getWifiGatewayIP() ?? "No disponible";
-    _wifiSubmask = await info.getWifiSubmask() ?? "No disponible";
-    setState(() {});
+  Future<void> _getNetworkInfo() async {
+    final info = await _networkService.getNetworkInfo();
+    setState(() {
+      _wifiName = info["wifiName"];
+      _wifiBSSID = info["wifiBSSID"];
+      _wifiIP = info["wifiIP"];
+      _wifiGateway = info["wifiGateway"];
+      _wifiSubmask = info["wifiSubmask"];
+    });
   }
 
   void _listenForServer() async {
     if (_isListening) return;
 
-    try {
-      _broadcastSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, portUDP);
-      _broadcastSocket!.broadcastEnabled = true;
-      print("Escuchando en modo broadcast en puerto $portUDP");
-
-      setState(() {
-        _isListening = true;
-        _serverIp = null;
-        _statusListening = "Esperando mensaje...";
-      });
-
-      _broadcastSocket!.listen((RawSocketEvent event) {
-        if (event == RawSocketEvent.read) {
-          final datagram = _broadcastSocket!.receive();
-          if (datagram != null) {
-            final message = utf8.decode(datagram.data);
-            print("Recibido de ${datagram.address.address}:${datagram.port}: $message");
-
-            List<String> parts = message.split(":");
-            if (parts.length > 3) {
-              _serverIp = parts[3].trim();
-              print("IP obtenida por message: $_serverIp");
-            } else {
-              _serverIp = datagram.address.address;
-              print("IP obtenida por datagram: $_serverIp");
-            }
-
-            setState(() {
-              //_serverIp = datagram.address.address;
-              _statusListening = message;
-            });
-
-            _stopListening();
-          }
-        }
-      });
-    } catch (e) {
-      print("Error al iniciar escucha: $e");
-    }
+    print("Start listening");
+    await _networkService.listenForServer(
+      portUDP: portUDP,
+      onListeningStarted: () {
+        setState(() {
+          _isListening = true;
+          _serverIp = null;
+          _statusListening = "Waiting message...";
+        });
+      },
+      onMessageReceived: (message, ip) {
+        print("Message: $message, IP: $ip");
+        setState(() => _serverIp = ip);
+      },
+      onStatusChanged: (status) { },
+      onListeningStopped: () {
+        print("Stop listening");
+        setState(() {
+          _isListening = false;
+          _statusListening = "Listening stopped";
+        });
+      },
+    );
   }
 
   void _stopListening() {
-    _broadcastSocket?.close();
+    print("Stop listening");
+    _networkService.dispose();
     setState(() {
       _isListening = false;
+      _statusListening = "Listening stopped";
     });
-    print("Escucha detenida");
   }
 
   @override
   void dispose() {
-    _broadcastSocket?.close();
+    _networkService.dispose();
     super.dispose();
   }
 
@@ -141,13 +134,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Text("Información de Red", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
-                    Text("SSID: $_wifiName"),
-                    Text("BSSID: $_wifiBSSID"),
-                    Text("IP: $_wifiIP"),
-                    Text("Gateway: $_wifiGateway"),
-                    Text("Submask: $_wifiSubmask"),
-                    Text("IP Server: $_serverIp", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                    Text("Status Listening: $_statusListening", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    _InfoText(title: "SSID", value: _wifiName),
+                    _InfoText(title: "BSSID", value: _wifiBSSID),
+                    _InfoText(title: "IP", value: _wifiIP),
+                    _InfoText(title: "Gateway", value: _wifiGateway),
+                    _InfoText(title: "SubMask", value: _wifiSubmask),
+                    _InfoText(title: "IP Sever", value: _serverIp, isBold: _serverIp != null),
+                    _InfoText(title: "Status", value: _statusListening),
                     SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -161,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Text("Dejar de escuchar"),
                         ),
                         TextButton(
-                          onPressed: getNetworkInfo,
+                          onPressed: _loadData,
                           child: Text("Actualizar"),
                         ),
                       ],
@@ -173,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                //stopAnnounceServer();
+                _stopListening();
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => ServerScreen()),
@@ -183,7 +176,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () async {
+              onPressed:
+              _serverIp == null ? null :
+                  () async {
+                _stopListening();
                 Navigator.push(context, MaterialPageRoute(
                   builder: (context) => ClientScreen(serverIp: _serverIp),
                 ));
@@ -192,6 +188,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InfoText extends StatelessWidget {
+
+  final String? title;
+  final String? value;
+  final bool isBold;
+
+  const _InfoText({super.key, this.title, this.value, this.isBold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: RichText(
+        textAlign: TextAlign.start,
+        text: TextSpan(
+          style: TextStyle(color: Colors.black, fontSize: 12.0),
+          children: [
+            TextSpan(text: "$title: "),
+            TextSpan(
+              text: value ?? "No data",
+              style: TextStyle(
+                backgroundColor: isBold ? Colors.amberAccent : null,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal
+              )
+            )
+          ]
+        )
       ),
     );
   }

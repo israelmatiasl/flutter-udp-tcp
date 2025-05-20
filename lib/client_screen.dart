@@ -1,6 +1,4 @@
-import 'dart:convert';
-import 'dart:io';
-
+import 'package:device_connection_wifi/services/tcp_client_service.dart';
 import 'package:flutter/material.dart';
 
 class ClientScreen extends StatefulWidget {
@@ -13,79 +11,75 @@ class ClientScreen extends StatefulWidget {
 
 class _ClientScreenState extends State<ClientScreen> {
 
-  String? _serverIp;
-  Socket? _clientSocket;
-  String _status = "Esperando...";
+  final TcpClientService _clientService = TcpClientService();
   final TextEditingController _ipController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
-  final List<String> _receivedMessages = [];
+  String _status = "Waiting connection...";
+  List<String> _messages = [];
 
   @override
   void initState() {
     super.initState();
     _ipController.text = widget.serverIp ?? "";
-    //connectClient();
-  }
-
-  void connectClient() async {
-    _serverIp = _ipController.text;
-    try {
-      _clientSocket = await Socket.connect(_serverIp, 8080);
-      setState(() => _status = "Conectado al servidor");
-
-      _clientSocket?.listen((data) {
-        setState(() => _receivedMessages.add(String.fromCharCodes(data)));
-      }, onDone: () {
-        disconnectClient();
-      }, onError: (error) {
-        setState(() => _status = "Error de conexión: $error");
-      });
-      print(_status);
-    } catch (e) {
-      setState(() => _status = "Error de conexión: $e");
-      print(_status);
+    if(widget.serverIp != null) {
+      _connectClient();
     }
   }
 
-  void sendMessage() {
-    if (_clientSocket != null && _messageController.text.isNotEmpty) {
-      _clientSocket!.write(_messageController.text);
+  void _connectClient() async {
+    final ip = _ipController.text;
+
+    _clientService.connect(
+      serverIp: ip,
+      onStatusChange: (status) {
+        setState(() => _status = status);
+      },
+      onMessageReceived: (message) {
+        setState(() => _messages = List.from(_clientService.receivedMessages));
+      },
+      onAlertReceived: () {
+        _showDangerAlert();
+      },
+      onDisconnected: () {
+        setState(() => _status = "Disconnected from server");
+      },
+    );
+  }
+
+  void _sendMessage() {
+    final msg = _messageController.text;
+    if (msg.isNotEmpty) {
+      _clientService.send(msg, onMessageReceived: (message) {
+        setState(() => _messages = List.from(_clientService.receivedMessages));
+      });
       _messageController.clear();
     }
   }
 
-  void disconnectClient() {
-    if (_clientSocket != null) {
-      _clientSocket!.write("Cliente desconectado");
-      _clientSocket!.close();
-      setState(() {
-        _clientSocket = null;
-        _status = "Desconectado del servidor";
-        _receivedMessages.clear();
-      });
-    }
+  void _disconnectClient() {
+    _clientService.disconnect();
+    setState(() {
+      _status = "Disconnected from server";
+      _messages = [];
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isConnected = _clientService.isConnected;
+
     return Scaffold(
       appBar: AppBar(
         title: Text("Client TCP"),
         surfaceTintColor: Colors.white,
         actions: [
           SizedBox(),
-          if (_clientSocket != null) Padding(
+          if (isConnected)
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 10.0),
             child: ElevatedButton(
-                onPressed: disconnectClient,
-                child: Text(
-                  "Desconectar",
-                  style: TextStyle(
-                    fontSize: 12.0,
-                    color: Colors.redAccent,
-                    fontWeight: FontWeight.bold
-                  )
-                )
+              onPressed: _disconnectClient,
+              child: Text("Disconnect", style: TextStyle(fontSize: 12.0, color: Colors.redAccent, fontWeight: FontWeight.bold)),
             ),
           )
           else SizedBox()
@@ -95,20 +89,25 @@ class _ClientScreenState extends State<ClientScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            if (_clientSocket == null) ...[
+            if (!isConnected) ...[
               TextField(
                 controller: _ipController,
-                keyboardType: TextInputType.number,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  hintText: "Ingresar IP del Servidor",
+                  hintText: "Type Server IP",
                   border: OutlineInputBorder(),
                   suffixIcon: TextButton(
-                    onPressed: connectClient,
-                    child: Padding(padding: EdgeInsets.symmetric(horizontal: 10.0), child: Text("Conectar")),
+                    onPressed: _connectClient,
+                    child: Padding(padding: EdgeInsets.symmetric(horizontal: 10.0), child: Text("Connect")),
                   ),
                 ),
               ),
-              Text(_status, style: TextStyle(color: Colors.grey, fontSize: 10.0)),
+              SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(_status, style: TextStyle(color: Colors.grey, fontSize: 12.0)),
+                ],
+              )
             ] else ...[
               Row(
                 children: [
@@ -117,11 +116,11 @@ class _ClientScreenState extends State<ClientScreen> {
                       controller: _messageController,
                       maxLines: 2,
                       decoration: InputDecoration(
-                        hintText: "Escribe tu mensaje...",
+                        hintText: "Write your message...",
                         border: OutlineInputBorder(),
                         suffixIcon: IconButton(
                           icon: Icon(Icons.send),
-                          onPressed: sendMessage,
+                          onPressed: _sendMessage,
                         ),
                       ),
                     ),
@@ -130,7 +129,11 @@ class _ClientScreenState extends State<ClientScreen> {
               ),
               Expanded(
                 child: ListView(
-                  children: _receivedMessages.map((msg) => ListTile(title: Text(msg))).toList(),
+                  padding: EdgeInsets.only(top: 10.0),
+                  children: _messages.map(
+                    (msg) => ListTile(
+                      title: Text(msg)
+                    )).toList(),
                 ),
               ),
             ],
@@ -138,5 +141,38 @@ class _ClientScreenState extends State<ClientScreen> {
         ),
       ),
     );
+  }
+
+  void _showDangerAlert() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return AlertDialog(
+          backgroundColor: Colors.amberAccent,
+          title: Text(
+            "⚠️ ALERTA DE SEGURIDAD ⚠️",
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+          ),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text("Se ha recibido una señal crítica desde el servidor."),
+              SizedBox(height: 8),
+              Text("El sistema ha detectado una condición de riesgo."),
+              SizedBox(height: 12),
+              Text("Acción remota en curso."),
+            ],
+          ),
+        );
+      },
+    );
+
+    Future.delayed(Duration(seconds: 6), () {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // cierra la alerta automáticamente
+      }
+    });
   }
 }

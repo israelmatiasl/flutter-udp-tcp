@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 class ClientExpansionTile extends StatefulWidget {
@@ -33,7 +32,7 @@ class _ClientExpansionTileState extends State<ClientExpansionTile> {
           _messageController.clear();
         });
       } catch (e) {
-        print("Error al enviar el mensaje: $e");
+        print("Error while send message: $e");
       }
     }
   }
@@ -46,20 +45,20 @@ class _ClientExpansionTileState extends State<ClientExpansionTile> {
     return ExpansionTile(
       leading: Icon(Icons.phone_android),
       title: Text("IP: ${client.remoteAddress.address}"),
-      subtitle: Text("Mensajes recibidos: ${messages?.length ?? 0}"),
+      subtitle: Text("Messages received: ${messages?.length ?? 0}"),
       trailing: Icon(_customTileExpanded ? Icons.keyboard_arrow_up:  Icons.keyboard_arrow_down),
       onExpansionChanged: (bool expanded) {
         setState(() { _customTileExpanded = expanded; });
       },
       children: [
-        TextButton(onPressed: widget.onDisconnect, child: Text("Desconectar a este cliente", style: TextStyle(color: Colors.red))),
+        TextButton(onPressed: widget.onDisconnect, child: Text("Disconnect client", style: TextStyle(color: Colors.red))),
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: TextField(
             controller: _messageController,
             maxLines: 2,
             decoration: InputDecoration(
-              hintText: "Escribe tu mensaje...",
+              hintText: "Write your message...",
               border: OutlineInputBorder(),
               suffixIcon: IconButton(
                 icon: const Icon(Icons.send),
@@ -68,7 +67,7 @@ class _ClientExpansionTileState extends State<ClientExpansionTile> {
             ),
           ),
         ),
-        const Divider(),
+        //const Divider(),
         ...messages!.map((msg) => ListTile(title: Text(msg))).toList()
       ],
     );
